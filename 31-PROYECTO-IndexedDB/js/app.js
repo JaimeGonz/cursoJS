@@ -100,8 +100,6 @@ class UI {
    imprimirCitas() { 
        
         this.limpiarHTML();
-
-        // this.textoHeading(citas);
         
         // Leer el contenido de la base de datos
         const objectStore = DB.transaction('citas').objectStore('citas');
@@ -153,8 +151,8 @@ class UI {
     
                 // Añade un botón de editar...
                 const btnEditar = document.createElement('button');
+                const cita = cursor.value;
                 btnEditar.onclick = () => cargarEdicion(cita);
-    
                 btnEditar.classList.add('btn', 'btn-info');
                 btnEditar.innerHTML = 'Editar <svg fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>'
     
@@ -198,11 +196,11 @@ const ui = new UI(administrarCitas);
 function nuevaCita(e) {
     e.preventDefault();
 
-    const {mascota, propietario, telefono, fecha, hora, sintomas } = citaObj;
+    const { mascota, propietario, telefono, fecha, hora, sintomas } = citaObj;
 
     // Validar
     if( mascota === '' || propietario === '' || telefono === '' || fecha === ''  || hora === '' || sintomas === '' ) {
-        ui.imprimirAlerta('Todos los mensajes son Obligatorios', 'error')
+        ui.imprimirAlerta('Todos los mensajes son Obligatorios', 'error');
 
         return;
     }
@@ -211,11 +209,24 @@ function nuevaCita(e) {
         // Estamos editando
         administrarCitas.editarCita( {...citaObj} );
 
-        ui.imprimirAlerta('Guardado Correctamente');
+        // Edita en indexedDB
+        const transaction = DB.transaction(['citas'], 'readwrite');
+        const objectStore = transaction.objectStore('citas');
 
-        formulario.querySelector('button[type="submit"]').textContent = 'Crear Cita';
+        // Obtener un registro
+        objectStore.put(citaObj);
 
-        editando = false;
+        transaction.oncomplete = () => {
+            ui.imprimirAlerta('Guardado Correctamente');
+    
+            formulario.querySelector('button[type="submit"]').textContent = 'Crear Cita';
+    
+            editando = false;
+        }
+
+        transaction.onerror = () => {
+            console.log('Hubo un error');
+        }
 
     } else {
         // Nuevo Registro
@@ -316,7 +327,7 @@ function crearDB() {
     // Config, estructura de la base de datos
     crearDB.onupgradeneeded = (e) => {
         const db = e.target.result;
-        const objectStore = db.createObjectStore('citas', { keypath: 'id', autoIncrement: true });
+        const objectStore = db.createObjectStore('citas', { keyPath: 'id', autoIncrement: true });
 
         // Definir columnas
         objectStore.createIndex('id', 'id', { unique: true }); // name, keypath, options
