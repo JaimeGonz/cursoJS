@@ -1,4 +1,4 @@
-
+let DB;
 const mascotaInput = document.querySelector('#mascota');
 const propietarioInput = document.querySelector('#propietario');
 const telefonoInput = document.querySelector('#telefono');
@@ -19,9 +19,13 @@ const heading = document.querySelector('#administra');
 
 let editando = false;
 
+window.onload = () => {
+    eventListeners();
+
+    crearDB();
+}
 
 // Eventos
-eventListeners();
 function eventListeners() {
     mascotaInput.addEventListener('change', datosCita);
     propietarioInput.addEventListener('change', datosCita);
@@ -170,7 +174,7 @@ class UI {
 
 
 const administrarCitas = new Citas();
-console.log(administrarCitas);
+// console.log(administrarCitas);
 const ui = new UI(administrarCitas);
 
 function nuevaCita(e) {
@@ -196,7 +200,7 @@ function nuevaCita(e) {
         editando = false;
 
     } else {
-        // Nuevo Registrando
+        // Nuevo Registro
 
         // Generar un ID único
         citaObj.id = Date.now();
@@ -204,8 +208,18 @@ function nuevaCita(e) {
         // Añade la nueva cita
         administrarCitas.agregarCita({...citaObj});
 
-        // Mostrar mensaje de que todo esta bien...
-        ui.imprimirAlerta('Se agregó correctamente')
+        // Insertar nuevo registro en IndexedDB
+        const transaction = DB.transaction(['citas'],'readwrite');
+        // Habilitar el ObjectStore
+        const objectStore = transaction.objectStore('citas');
+        // Insertar registro en la Base de Datos
+        objectStore.add(citaObj);
+        
+        transaction.oncomplete = () => {
+            console.log('Cita agregada...');
+            // Mostrar mensaje de que todo esta bien...
+            ui.imprimirAlerta('Se agregó correctamente')
+        }
     }
 
 
@@ -262,4 +276,39 @@ function cargarEdicion(cita) {
 
     editando = true;
 
+}
+
+function crearDB() {
+    // Crear base de datos en version 1.0
+    const crearDB = window.indexedDB.open( 'Veterinaria', 1 );
+    
+    // Error
+    crearDB.onerror = function() {
+        console.log('Hubo un error');
+    }
+    // Success
+    crearDB.onsuccess = () => {
+        console.log('La Base de Datos fue creada con exito');
+
+        DB = crearDB.result;
+        console.log(DB);
+    }
+
+    // Config, estructura de la base de datos
+    crearDB.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        const objectStore = db.createObjectStore('citas', { keypath: 'id', autoIncrement: true });
+
+        // Definir columnas
+        objectStore.createIndex('id', 'id', { unique: true }); // name, keypath, options
+        objectStore.createIndex('mascota', 'mascota', { unique: false }); // name, keypath, options
+        objectStore.createIndex('propietario', 'propietario', { unique: false }); // name, keypath, options
+        objectStore.createIndex('telefono', 'telefono', { unique: false }); // name, keypath, options
+        objectStore.createIndex('fecha', 'fecha', { unique: false }); // name, keypath, options
+        objectStore.createIndex('hora', 'hora', { unique: false }); // name, keypath, options
+        objectStore.createIndex('sintomas', 'sintomas', { unique: false }); // name, keypath, options
+
+        console.log('Base de datos creada y lista');
+
+    }
 }
